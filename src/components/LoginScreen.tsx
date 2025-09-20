@@ -5,36 +5,38 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { AlertCircle, GraduationCap } from "lucide-react";
 import { Alert, AlertDescription } from "./ui/alert";
+import { supabase } from "../lib/supabase";
 
 interface LoginScreenProps {
   onLogin: () => void;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");       // ← use email
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Default credentials
-  const DEMO_USERNAME = "admin";
-  const DEMO_PASSWORD = "one";
-
-  const handleLogin = (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    // Simulate API call delay
-    setTimeout(() => {
-      if (username === DEMO_USERNAME && password === DEMO_PASSWORD) {
-        onLogin();
-      } else {
-        setError("Password de ghalat de Ror.");
-      }
-      setIsLoading(false);
-    }, 1000);
-  };
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      setError(error.message || "Login failed");
+      return;
+    }
+
+    // success → tell App.tsx we're logged in (App listens and loads data)
+    onLogin();
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -49,21 +51,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Admin Login</CardTitle>
-            <CardDescription>
-              Enter your credentials to access the system
-            </CardDescription>
+            <CardTitle>Sign in</CardTitle>
+            <CardDescription>Enter your email and password</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
                 />
               </div>
@@ -74,7 +74,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Your password"
                   required
                 />
               </div>
@@ -86,11 +86,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 </Alert>
               )}
 
-              <Button 
-                type="submit" 
-                className="w-full bg-primary hover:bg-primary/90"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
