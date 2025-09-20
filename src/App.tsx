@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { SidebarProvider } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { LoginScreen } from "./components/LoginScreen";
@@ -20,8 +20,8 @@ import {
   TxType,
 } from "./lib/transactions";
 
-// (Optional) no-button autosave form to quickly add/edit one row
-import AutosaveTransactionForm from "./components/AutosaveTransactionForm";
+// ✅ Simple quick-add with Save button
+import QuickAddSimple from "./components/QuickAddSimple";
 
 interface Transaction {
   id: string;
@@ -41,7 +41,7 @@ function toUI(t: Tx): Transaction {
     id: t.id,
     date: ymd,
     amount: Number(t.amount),
-    category: "General", // adjust if you later add categories in DB
+    category: "General",
     description: t.note ?? "",
     type: t.type as "credit" | "debit",
   };
@@ -111,7 +111,6 @@ export default function App() {
   const handleDeleteTransaction = async (id: string) => {
     try {
       await dbDelete(id);
-      // Optimistic update
       setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error("Delete failed:", e);
@@ -123,7 +122,6 @@ export default function App() {
   }
 
   const renderActivePage = () => {
-    // While loading from DB, you can show skeletons/spinners if you like
     const commonProps = {
       transactions,
       onAddTransaction: handleAddTransaction,
@@ -170,12 +168,12 @@ export default function App() {
               </Button>
             </div>
 
-            {/* (Optional) No-button autosave block — remove if you don't want it visible */}
+            {/* Quick Add with explicit Save button */}
             <div>
-              <h2 className="text-lg font-semibold mb-2">Quick Add (Auto-save)</h2>
-              <AutosaveTransactionForm />
+              <h2 className="text-lg font-semibold mb-2">Quick Add</h2>
+              <QuickAddSimple />
               <div className="text-sm opacity-70 mt-1">
-                Type amount & note — it auto-saves to the online database.
+                Enter amount & note → click Save (writes to the online database).
               </div>
             </div>
 
