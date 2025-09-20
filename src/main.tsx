@@ -1,9 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-// App.tsx is at the repo root (../ from /src)
-import App from "../App";
-import "../index.css";
+import App from "./App";       // <-- App.tsx inside src
+import "./index.css";          // <-- index.css inside src (adjust if needed)
 
 import OfflineGate from "./components/OfflineGate";
 
