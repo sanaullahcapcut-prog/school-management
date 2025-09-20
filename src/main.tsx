@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "../App";         // if App.tsx is at repo root
-// If your App.tsx is inside src/, use: import App from "./App";
-import "../index.css";           // adjust to "./index.css" if your CSS is in src
+
+// App.tsx is at the repo root (../ from /src)
+import App from "../App";
+import "../index.css";
+
 import OfflineGate from "./components/OfflineGate";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
