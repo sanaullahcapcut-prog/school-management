@@ -1,4 +1,3 @@
-import QuickAddSimple from "./components/QuickAddSimple";
 import { useEffect, useState } from "react";
 import { SidebarProvider } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
@@ -11,7 +10,10 @@ import { ReportsModule } from "./components/ReportsModule";
 import { Button } from "./components/ui/button";
 import { Menu } from "lucide-react";
 
-// ✅ ONLINE DB helpers (Supabase)
+// ✅ Supabase (for auth session)
+import { supabase } from "./lib/supabase";
+
+// ✅ DB helpers
 import {
   fetchTransactions as dbFetch,
   insertTransaction as dbInsert,
@@ -65,12 +67,23 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load from Supabase on mount
+  // Detect existing session on load and watch for changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setIsLoggedIn(!!session);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Load from Supabase when logged in
   async function reload() {
     setLoading(true);
     try {
-      const rows = await dbFetch();       // Tx[]
-      setTransactions(rows.map(toUI));    // Transaction[]
+      const rows = await dbFetch(); // Tx[]
+      setTransactions(rows.map(toUI)); // Transaction[]
     } catch (e) {
       console.error("Failed to load transactions:", e);
     } finally {
@@ -79,10 +92,13 @@ export default function App() {
   }
 
   useEffect(() => {
-    reload();
-  }, []);
+    if (isLoggedIn) reload();
+  }, [isLoggedIn]);
 
-  const handleLogin = () => setIsLoggedIn(true);
+  const handleLogin = () => {
+    // Called by <LoginScreen /> after successful sign-in
+    setIsLoggedIn(true);
+  };
 
   // ➕ Add = INSERT into DB, then reload UI
   const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
@@ -117,6 +133,12 @@ export default function App() {
       console.error("Delete failed:", e);
     }
   };
+
+  // (optional) simple sign-out
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.reload();
+  }
 
   if (!isLoggedIn) {
     return <LoginScreen onLogin={handleLogin} />;
@@ -166,6 +188,11 @@ export default function App() {
                 className="md:hidden"
               >
                 <Menu className="h-4 w-4" />
+              </Button>
+
+              {/* optional sign out */}
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                Sign out
               </Button>
             </div>
 
