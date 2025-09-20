@@ -10,10 +10,8 @@ import { ReportsModule } from "./components/ReportsModule";
 import { Button } from "./components/ui/button";
 import { Menu } from "lucide-react";
 
-// ✅ Supabase (for auth session)
 import { supabase } from "./lib/supabase";
 
-// ✅ DB helpers
 import {
   fetchTransactions as dbFetch,
   insertTransaction as dbInsert,
@@ -23,38 +21,37 @@ import {
   TxType,
 } from "./lib/transactions";
 
-// ✅ Simple quick-add with Save button
 import QuickAddSimple from "./components/QuickAddSimple";
 
 interface Transaction {
   id: string;
-  date: string;            // mapped from DB created_at (YYYY-MM-DD)
+  date: string;        // YYYY-MM-DD (tx_date)
   amount: number;
-  category: string;        // we map "General" for now
-  description: string;     // mapped from DB note
+  category: string;
+  description: string;
   type: "credit" | "debit";
 }
 
 type ActivePage = "dashboard" | "credit" | "debit" | "expenses" | "reports";
 
 function toUI(t: Tx): Transaction {
-  const iso = t.created_at ?? new Date().toISOString();
-  const ymd = iso.slice(0, 10); // YYYY-MM-DD
   return {
     id: t.id,
-    date: ymd,
+    date: t.tx_date ?? t.created_at.slice(0, 10),
     amount: Number(t.amount),
-    category: "General",
+    category: t.category ?? "General",
     description: t.note ?? "",
     type: t.type as "credit" | "debit",
   };
 }
 
-function toDBPatch(t: Omit<Transaction, "id" | "date"> & { type: TxType }) {
+function toDBPatch(t: Omit<Transaction, "id"> & { type: TxType }) {
   return {
     type: t.type,
     amount: t.amount,
     note: t.description,
+    category: t.category ?? "General",
+    tx_date: t.date, // YYYY-MM-DD
   };
 }
 
@@ -63,11 +60,10 @@ export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // 🔗 This state mirrors the DB
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Detect existing session on load and watch for changes
+  // Keep auth session in sync
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
@@ -78,12 +74,11 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Load from Supabase when logged in
   async function reload() {
     setLoading(true);
     try {
-      const rows = await dbFetch(); // Tx[]
-      setTransactions(rows.map(toUI)); // Transaction[]
+      const rows = await dbFetch();
+      setTransactions(rows.map(toUI));
     } catch (e) {
       console.error("Failed to load transactions:", e);
     } finally {
@@ -95,26 +90,17 @@ export default function App() {
     if (isLoggedIn) reload();
   }, [isLoggedIn]);
 
-  const handleLogin = () => {
-    // Called by <LoginScreen /> after successful sign-in
-    setIsLoggedIn(true);
-  };
+  const handleLogin = () => setIsLoggedIn(true);
 
-  // ➕ Add = INSERT into DB, then reload UI
-  const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
+  const handleAddTransaction = async (t: Omit<Transaction, "id">) => {
     try {
-      await dbInsert(
-        transaction.type,
-        transaction.amount,
-        transaction.description
-      );
+      await dbInsert(t.type, t.amount, t.description, t.category, t.date);
       await reload();
     } catch (e) {
       console.error("Add failed:", e);
     }
   };
 
-  // ✏️ Update = UPDATE in DB, then reload UI
   const handleUpdateTransaction = async (id: string, updated: Omit<Transaction, "id">) => {
     try {
       await dbUpdate(id, toDBPatch({ ...updated, type: updated.type as TxType }));
@@ -124,17 +110,15 @@ export default function App() {
     }
   };
 
-  // 🗑️ Delete = DELETE in DB, then update UI
   const handleDeleteTransaction = async (id: string) => {
     try {
       await dbDelete(id);
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       console.error("Delete failed:", e);
     }
   };
 
-  // (optional) simple sign-out
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.reload();
@@ -179,33 +163,23 @@ export default function App() {
         />
         <main className="flex-1 overflow-auto">
           <div className="container mx-auto p-6 space-y-6">
-            {/* Mobile menu button */}
             <div className="flex items-center gap-4 md:hidden">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden">
                 <Menu className="h-4 w-4" />
               </Button>
-
-              {/* optional sign out */}
               <Button variant="outline" size="sm" onClick={handleLogout}>
-                Sign out
+                Logout
               </Button>
             </div>
 
-            {/* Quick Add with explicit Save button */}
             <div>
               <h2 className="text-lg font-semibold mb-2">Quick Add</h2>
               <QuickAddSimple />
               <div className="text-sm opacity-70 mt-1">
-                Enter amount & note → click Save (writes to the online database).
+                Choose type, date, category, add note & amount → Save (writes to the online database).
               </div>
             </div>
 
-            {/* Main page content */}
             {loading ? <div>Loading…</div> : renderActivePage()}
           </div>
         </main>
